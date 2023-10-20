@@ -1,0 +1,11 @@
+build
+integer_data
+string_data
+.vscode
+*.zip
+*.txt
+*.out
+scripts/leco_scripts/*
+scripts/drafts/*
+scripts/paper_scripts/.ipynb_checkpoints/*
+*.pdf
