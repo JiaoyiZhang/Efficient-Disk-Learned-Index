@@ -2,7 +2,7 @@
 bash scripts/build_benchmark.sh
 
 function run_script(){
-    src="../../../../$1/SOSD/"
+    src="../../../../../$1/SOSD/"
     resfile="./results/$1"
     echo "Test Disk on $1, the datasets are stored in $src, #lookup is $2"
 

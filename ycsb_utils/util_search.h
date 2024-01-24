@@ -1,14 +1,3 @@
-/**
- * @file util_search.h
- * @author Jiaoyi
- * @brief Functions for last-mile search.
- * @version 1
- * @date 2022-11-01
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #ifndef EXPERIMENTS_UTIL_SEARCH_H_
 #define EXPERIMENTS_UTIL_SEARCH_H_
 
@@ -30,8 +19,10 @@ int DirectIOOpen(const std::string& filename) {
   int fd = open(filename.c_str(), O_RDONLY);
   fcntl(fd, F_NOCACHE, 1);
 #else  // Linux
-  // int fd = open(filename.c_str(), O_RDONLY | O_DIRECT | O_SYNC);
   int fd = open(filename.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0644);
+#ifdef PRINT_PROCESSING_INFO
+  std::cout << "DirectIOOpen file:" << filename << ",\tfd:" << fd << std::endl;
+#endif
 #endif
   if (fd == -1) {
     throw std::runtime_error("open file error in DirectIOOpen");
@@ -39,15 +30,17 @@ int DirectIOOpen(const std::string& filename) {
   return fd;
 }
 
-void DirectIOClose(int fd) { close(fd); }
+void DirectIOClose(int fd) {
+#ifdef PRINT_PROCESSING_INFO
+  std::cout << "DirectIOClose file:" << fd << std::endl;
+#endif
+  close(fd);
+}
 
 template <typename K>
 static void DirectIORead(int fd, size_t page_bytes, size_t page_num,
                          size_t offset, K* read_buf) {
-  if (lseek(fd, offset, SEEK_SET) == -1) {
-    throw std::runtime_error("lseek file error in DirectIORead");
-  }
-  int ret = read(fd, read_buf, page_bytes * page_num);
+  int ret = pread(fd, read_buf, page_bytes * page_num, offset);
   if (ret == -1) {
     throw std::runtime_error("read error in DirectIORead");
   }
@@ -55,7 +48,8 @@ static void DirectIORead(int fd, size_t page_bytes, size_t page_num,
 
 template <typename ElementType>
 static void DirectIOWrite(int fd, const std::vector<ElementType>& data,
-                          size_t page_bytes, size_t page_num, void* write_buf) {
+                          size_t page_bytes, size_t page_num, void* write_buf,
+                          size_t seek_offset = 0) {
   int total_num = page_num;
   while (total_num > 0) {
     int tmp_num = total_num;
@@ -63,15 +57,12 @@ static void DirectIOWrite(int fd, const std::vector<ElementType>& data,
       tmp_num = 500000;
     }
     size_t offset = page_bytes * (page_num - total_num);
-    lseek(fd, offset, SEEK_SET);
-    if (tmp_num > ALLOCATED_BUF_SIZE) {
-      write_buf = aligned_alloc(page_bytes, page_bytes * tmp_num);
-    }
     size_t cpy_size = std::min(tmp_num * page_bytes,
                                data.size() * sizeof(ElementType) - offset);
     memcpy(write_buf, &data[offset / sizeof(ElementType)], cpy_size);
+    auto ret =
+        pwrite(fd, write_buf, page_bytes * tmp_num, seek_offset + offset);
 
-    int ret = write(fd, write_buf, page_bytes * tmp_num);
     if (ret == -1) {
       throw std::runtime_error("write error in DirectIOWrite");
     }
@@ -118,13 +109,14 @@ inline uint64_t LastMileSearch(const K* data, uint64_t record_num,
 }
 
 template <typename K, typename V>
-static inline std::vector<std::pair<K, V>> GetAllData(
-    int fd, const size_t page_num, const size_t record_per_page,
-    const uint64_t length, K* read_buf) {
-  std::vector<std::pair<K, V>> data(length);
-  uint64_t bytes_per_page = record_per_page * sizeof(Record);
+static inline void GetAllData(int fd, const size_t start_page_id,
+                              const size_t page_num,
+                              const size_t record_per_page,
+                              const uint64_t length, K* read_buf,
+                              std::vector<std::pair<K, V>>& data) {
+  uint64_t bytes_per_page = record_per_page * (sizeof(V) + sizeof(K));
   uint64_t gap_cnt = (sizeof(V) + sizeof(K)) / sizeof(K);
-  size_t idx = 0;
+  size_t idx = 0, item_offset = 0;
   int total_num = page_num;
   while (total_num > 0) {
     int tmp_num = total_num;
@@ -132,16 +124,15 @@ static inline std::vector<std::pair<K, V>> GetAllData(
       tmp_num = 500000;
     }
     DirectIORead<K>(fd, bytes_per_page, tmp_num,
-                    bytes_per_page * (page_num - total_num), read_buf);
-    size_t cumulative_num =
-        std::min(length, (tmp_num + page_num - total_num) * record_per_page);
-    for (size_t i = 0; idx < cumulative_num; idx++, i++) {
-      data[idx].first = *(read_buf + i * gap_cnt);
-      data[idx].second = *(read_buf + i * gap_cnt + 1);
-    }
+                    bytes_per_page * (start_page_id + page_num - total_num),
+                    read_buf);
+    size_t copy_size =
+        (sizeof(K) + sizeof(V)) *
+        std::min(length - item_offset, tmp_num * record_per_page);
+    memcpy(&data[item_offset], read_buf, copy_size);
     total_num -= tmp_num;
+    item_offset += tmp_num * record_per_page;
   }
-  return data;
 }
 
 template <typename K, typename V>
@@ -274,9 +265,12 @@ template <typename K, typename V>
 static inline ResultInfo<K, V> NormalCoreLookup(
     int fd, const SearchRange& range, const K& lookupkey,
     const FetchStrategy& fetch_strategy, uint64_t record_per_page,
-    uint64_t length, uint64_t last_pid, K* read_buf, int last_id) {
+    uint64_t length, uint64_t last_pid, K* read_buf, int last_id,
+    size_t pid_offset = 0) {
   ResultInfo<K, V> res_info;
   FetchRange fetch_range = GetFetchRange(range, record_per_page, last_pid);
+  fetch_range.pid_start += pid_offset;
+  fetch_range.pid_end += pid_offset;
   switch (fetch_strategy) {
     case kWorstCase: {
       res_info =

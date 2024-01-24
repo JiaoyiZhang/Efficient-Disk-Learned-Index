@@ -17,6 +17,6 @@ typedef std::vector<std::pair<Key, Value>> DataVec;
 #define RANGE_LEN_SUFFIX "_RANGE_LEN"
 
 #define ALLOCATED_BUF_SIZE 4194304  // 4 GiB
-Key* read_buf_;
+Key* read_buf_;                     // for single-threaded benchmark
 
 #endif  // !KEY_TYPE_H

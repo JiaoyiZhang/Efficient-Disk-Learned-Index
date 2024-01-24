@@ -3,7 +3,6 @@
 
 #include <assert.h>
 
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 #define INIT_SIZE 100
@@ -60,7 +59,7 @@ class HybridIndex : public BaseIndex<K, V> {
               << std::endl;
     std::cout << "#init_records in static_index_:" << static_data.size()
               << std::endl;
-#endif  // PRINT_PROCESSING_INFO
+#endif
 
     dynamic_index_.Build(dynamic_data);
     static_index_.Build(static_data);
@@ -122,15 +121,25 @@ class HybridIndex : public BaseIndex<K, V> {
     if (dynamic_index_.GetTotalSize() > dynamic_budget_) {
 #ifdef PRINT_PROCESSING_INFO
       auto static_size = static_index_.size();
-      std::cout << "need to merge! dynamic_size:" << dynamic_size
+      std::cout << "need to merge! dynamic_size:"
+                << dynamic_index_.GetTotalSize()
                 << ",\tstatic_size:" << static_size
                 << ",\tmax_buffer_size_:" << max_buffer_size_ << std::endl;
-#endif  // PRINT_PROCESSING_INFO
+#endif
       merge_cnt_++;
       Merge();
       dynamic_budget_ = memory_budget_ - static_index_.GetNodeSize();
     }
+#ifdef BREAKDOWN
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     auto res = dynamic_index_.Insert(key, value);
+#ifdef BREAKDOWN
+    auto end = std::chrono::high_resolution_clock::now();
+    dynamic_insert_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+#endif
 #ifdef CHECK_CORRECTION
     V new_val = dynamic_index_.Find(key);
     if (new_val != value) {
@@ -188,6 +197,12 @@ class HybridIndex : public BaseIndex<K, V> {
     return dynamic_index_.GetTotalSize() + static_index_.GetTotalSize();
   }
   void PrintEachPartSize() {
+    max_memory_usage_ = std::max(max_memory_usage_, GetCurrMemoryUsage());
+    max_dynamic_usage_ =
+        std::max(max_dynamic_usage_, dynamic_index_.GetTotalSize());
+    max_dynamic_index_usage_ =
+        std::max(max_dynamic_index_usage_, dynamic_index_.GetNodeSize());
+    max_buffer_size_ = std::max(max_buffer_size_, dynamic_index_.size());
     std::cout << "-------------dynamic info-------------" << std::endl;
     dynamic_index_.PrintEachPartSize();
     std::cout << "-------------static info---------------" << std::endl;
@@ -214,6 +229,18 @@ class HybridIndex : public BaseIndex<K, V> {
               << " MiB,\tmax_memory_usage_:" << PRINT_MIB(max_memory_usage_)
               << " MiB" << std::endl;
     std::cout << "-------------print over---------------" << std::endl;
+#ifdef BREAKDOWN
+    if (merge_cnt_ > 0) {
+      std::cout << "dynamic insert avg latency:"
+                << dynamic_insert_lat / mem_insert_cnt_ / 1e6 << " ms"
+                << std::endl;
+      std::cout << "dynamic merge avg latency:"
+                << dynamic_merge_lat / merge_cnt_ / 1e6 << " ms" << std::endl;
+      std::cout << "static merge avg latency:"
+                << static_merge_lat / merge_cnt_ / 1e6 << " ms" << std::endl;
+      std::cout << "-------------print over---------------" << std::endl;
+    }
+#endif
   }
   std::string GetIndexName() const {
     return GetDynamicName() + "_" + GetStaticName();
@@ -234,8 +261,26 @@ class HybridIndex : public BaseIndex<K, V> {
         std::max(max_dynamic_index_usage_, dynamic_index_.GetNodeSize());
     max_buffer_size_ = std::max(max_buffer_size_, dynamic_index_.size());
     BaseVec dynamic_data;
+
+#ifdef BREAKDOWN
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     dynamic_index_.Merge(dynamic_data, INIT_SIZE);
+#ifdef BREAKDOWN
+    auto end = std::chrono::high_resolution_clock::now();
+    dynamic_merge_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    start = std::chrono::high_resolution_clock::now();
+#endif
+
     static_index_.Build(dynamic_data);
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    static_merge_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+#endif
   }
 
   std::string GetDynamicName() const { return dynamic_index_.GetIndexName(); }
@@ -243,6 +288,11 @@ class HybridIndex : public BaseIndex<K, V> {
 
   DynamicType dynamic_index_;
   StaticType static_index_;
+#ifdef BREAKDOWN
+  double dynamic_merge_lat = 0.0;
+  double static_merge_lat = 0.0;
+  double dynamic_insert_lat = 0.0;
+#endif
 
   size_t merge_cnt_;
   size_t mem_find_cnt_;

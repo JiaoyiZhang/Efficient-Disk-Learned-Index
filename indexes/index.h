@@ -1,13 +1,3 @@
-/**
- * @file index.h
- * @author Jiaoyi
- * @brief the basic class of on-disk indexes
- * @version 0.1
- * @date 2022-09-13
- *
- * @copyright Copyright (c) 2022
- *
- */
 #ifndef INDEXES_INDEX_H_
 #define INDEXES_INDEX_H_
 

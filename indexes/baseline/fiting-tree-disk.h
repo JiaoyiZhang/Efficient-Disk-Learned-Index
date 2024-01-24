@@ -2,7 +2,6 @@
 #define INDEXES_BASELINE_FITING_TREE_DISK_H_
 
 #include "../../libraries/UpdatableLearnedIndexDisk/FITingTree/fiting_tree_memory.h"
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 template <typename K, typename V>
@@ -59,7 +58,7 @@ class BaselineFitingTreeDisk : public BaseIndex<K, V> {
     return true;
   }
 
-  // TODO(jy): update
+  // TODO: update
   bool Update(const K key, const V value) { return Insert(key, value); }
   bool Delete(const K key) { return true; }
 

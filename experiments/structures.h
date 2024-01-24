@@ -1,6 +1,6 @@
 /**
  * @file structures.h
- * @author Jiaoyi
+ * @author Making In-Memory Learned Indexes Efficient on Disk
  * @brief Structures for our microbenchmark
  * @version 0.1
  * @date 2022-10-06

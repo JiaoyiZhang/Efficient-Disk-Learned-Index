@@ -133,10 +133,6 @@ class PGMIndexPage {
     };
     auto out_fun = [&](auto cs) {
       segments.emplace_back(cs);
-      auto it = std::lower_bound(
-          first, last, segments.back().key,
-          [](const auto &lhs, const K key) { return lhs.first <= key; });
-      segments.back().y = first[it - first - 1].second;
       intersections.emplace_back(cs.get_intersection());
       slopes.emplace_back(cs.get_slope_range());
     };
@@ -144,9 +140,9 @@ class PGMIndexPage {
     levels_offsets.push_back(levels_offsets.back() + last_n + 1);
   }
 
-  static std::pair<size_t, size_t> GetRangeY(size_t y, size_t eps,
-                                             size_t record_per_page,
-                                             bool cross_page) {
+  static pgm_page::internal::Y_Range GetRangeY(size_t y, size_t eps,
+                                               size_t record_per_page,
+                                               bool cross_page) {
     size_t corr_pid = y / record_per_page;
     size_t zero_left = corr_pid * record_per_page;  // start idx in this page
     size_t zero_right = (corr_pid + 1) * record_per_page - 1;  // last idx
@@ -161,7 +157,7 @@ class PGMIndexPage {
     }
     y_low = std::min(y_low, y);
     y_high = std::max(y_high, y);
-    return {y_low, y_high};
+    return {y, y_low, y_high};
   }
 
   template <typename RandomIt>
@@ -223,14 +219,10 @@ class PGMIndexPage {
       auto y =
           GetRangeY(first[i].second, epsilon, record_per_page, is_cross_page);
       // return std::pair<K, size_t>(x + flag, first[i].second);
-      return std::pair<K, std::pair<size_t, size_t>>(x + flag, y);
+      return std::pair<K, pgm_page::internal::Y_Range>(x + flag, y);
     };
     auto out_fun = [&](auto cs) {
       segments.emplace_back(cs);
-      auto it = std::lower_bound(
-          first, last, segments.back().key,
-          [](const auto &lhs, const K key) { return lhs.first <= key; });
-      segments.back().y = first[it - first - 1].second;
       intersections.emplace_back(cs.get_intersection());
       slopes.emplace_back(cs.get_slope_range());
     };
@@ -286,7 +278,7 @@ class PGMIndexPage {
       auto flag = i > 0 && i + 1u < n && x == first[i - 1].first &&
                   x != first[i + 1].first && x + 1 != first[i + 1].first;
       auto y = GetRangeY(first[i].second, max_epsilon, record_per_page, true);
-      return std::pair<K, std::pair<size_t, size_t>>(x + flag, y);
+      return std::pair<K, pgm_page::internal::Y_Range>(x + flag, y);
       // return std::pair<K, size_t>(x + flag, first[i].second);
     };
     auto out_fun = [&](auto cs) {
@@ -550,7 +542,7 @@ struct PGMIndexPage<K, EpsilonRecursive, Floating>::CompressSegment {
   explicit CompressSegment(
       const typename pgm_page::internal::OptimalPiecewiseLinearModel<
           K, size_t>::CanonicalSegment &cs)
-      : key(cs.get_first_x()) {
+      : key(cs.get_first_x()), y(cs.get_first_y()) {
     auto [cs_slope, cs_intercept] = cs.get_floating_point_segment(key);
     slope = cs_slope;
     intercept = cs_intercept;

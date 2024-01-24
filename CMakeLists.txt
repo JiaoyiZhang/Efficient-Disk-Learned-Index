@@ -19,7 +19,8 @@ else()
     if (HAS_MARCH_NATIVE)
         add_compile_options(-march=native)
     endif ()
-    add_compile_options(-Wall -Wextra)
+    # add_compile_options(-Wall -Wextra)
+    add_compile_options(-O3 -Wall -Wextra)
 endif()
 
 add_library(pgm_index INTERFACE)
@@ -37,34 +38,37 @@ target_link_libraries(leco docs Snappy::snappy gmp gmpxx fsst)
 
 add_executable(prepare_ycsb gen_ycsb_workloads.cpp)
 add_executable(HYBRID-LID run_ycsb_experiments.cpp)
+add_executable(MULTI-HYBRID-LID run_multi_threaded_ycsb.cpp)
 add_executable(LID run_microbenchmark.cpp)
 
+target_link_libraries(LID
+    PRIVATE pgm_index
+    PRIVATE leco
+)
 if (APPLE)
     # OpenMP disabled on Mac since m1 use osx-arm64 library
+    # PGM-index requires x86
+    set_target_properties(LID PROPERTIES OSX_ARCHITECTURES x86_64)
+    set_target_properties(HYBRID-LID PROPERTIES OSX_ARCHITECTURES x86_64)
+    set_target_properties(MULTI-HYBRID-LID PROPERTIES OSX_ARCHITECTURES x86_64)
+    # POPCNT is required by ALEX
+    target_compile_options(LID PRIVATE -march=x86-64-v2)
+    target_compile_options(HYBRID-LID PRIVATE -march=x86-64-v2)
+    target_compile_options(MULTI-HYBRID-LID PRIVATE -march=x86-64-v2)
 else()
     find_package(OpenMP)
     if (OpenMP_CXX_FOUND)
         message(STATUS "OpenMP found")
         target_link_libraries(pgm_index INTERFACE OpenMP::OpenMP_CXX)
         target_link_libraries(HYBRID-LID OpenMP::OpenMP_CXX leco)
+        target_link_libraries(MULTI-HYBRID-LID OpenMP::OpenMP_CXX leco)
     else()
         message(FATAL_ERROR "Openmp not found!")
         target_link_libraries(HYBRID-LID
             PRIVATE leco
         )
+        target_link_libraries(MULTI-HYBRID-LID
+            PRIVATE leco
+        )
     endif ()
-endif()
-
-target_link_libraries(LID
-    PRIVATE pgm_index
-    PRIVATE leco
-)
-
-if (APPLE)
-    # PGM-index requires x86
-    set_target_properties(LID PROPERTIES OSX_ARCHITECTURES x86_64)
-    set_target_properties(HYBRID-LID PROPERTIES OSX_ARCHITECTURES x86_64)
-    # POPCNT is required by ALEX
-    target_compile_options(LID PRIVATE -march=x86-64-v2)
-    target_compile_options(HYBRID-LID PRIVATE -march=x86-64-v2)
 endif()

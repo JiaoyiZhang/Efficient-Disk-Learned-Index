@@ -68,6 +68,7 @@ class OptimalPiecewiseLinearModel {
   const Y epsilon;
   std::vector<Point> lower;
   std::vector<Point> upper;
+  size_t first_y = 0;
   X first_x = 0;
   X last_x = 0;
   size_t lower_start = 0;
@@ -190,8 +191,8 @@ class OptimalPiecewiseLinearModel {
 
   CanonicalSegment get_segment() {
     if (points_in_hull == 1)
-      return CanonicalSegment(rectangle[0], rectangle[1], first_x);
-    return CanonicalSegment(rectangle, first_x);
+      return CanonicalSegment(rectangle[0], rectangle[1], first_x, first_y);
+    return CanonicalSegment(rectangle, first_x, first_y);
   }
 
   void reset() {
@@ -203,7 +204,7 @@ class OptimalPiecewiseLinearModel {
   //==============================================================
   //  FOR COMPRESSION DISK-ORIENTED INDEX
   //==============================================================
-  bool add_point(const X &x, const Y &y_low, const Y &y_high) {
+  bool add_point(const X &x, const Y &y_low, const Y &y_high, const Y &now_y) {
     if (points_in_hull > 0 && x <= last_x)
       throw std::logic_error("Points must be increasing by x.");
 
@@ -218,6 +219,7 @@ class OptimalPiecewiseLinearModel {
 
     if (points_in_hull == 0) {
       first_x = x;
+      first_y = now_y;
       rectangle[0] = p1;
       rectangle[1] = p2;
       upper.clear();
@@ -309,6 +311,12 @@ class OptimalPiecewiseLinearModel {
 //==============================================================
 //  FOR COMPRESSION DISK-ORIENTED INDEX
 //==============================================================
+struct Y_Range {
+  size_t y_;
+  size_t y_low_;
+  size_t y_high_;
+};
+
 template <typename Fin, typename Fout>
 size_t make_segmentation_disk(size_t n, size_t epsilon, Fin in, Fout out) {
   if (n == 0) return 0;
@@ -320,13 +328,14 @@ size_t make_segmentation_disk(size_t n, size_t epsilon, Fin in, Fout out) {
 
   // OptimalPiecewiseLinearModel<X, Y> opt(epsilon);
   OptimalPiecewiseLinearModel<X, size_t> opt(epsilon);
-  opt.add_point(p.first, p.second.first, p.second.second);
+  opt.add_point(p.first, p.second.y_low_, p.second.y_high_, p.second.y_);
 
   for (size_t i = 1; i < n; ++i) {
     auto next_p = in(i);
     if (next_p.first == p.first) continue;
     p = next_p;
-    if (!opt.add_point(p.first, p.second.first, p.second.second)) {
+    if (!opt.add_point(p.first, p.second.y_low_, p.second.y_high_,
+                       p.second.y_)) {
       ++c;
       return ++c;
     }
@@ -349,15 +358,16 @@ size_t make_segmentation_range(size_t n, size_t epsilon, Fin in, Fout out) {
   auto p = in(0);
 
   OptimalPiecewiseLinearModel<X, Y> opt(epsilon);
-  opt.add_point(p.first, p.second.first, p.second.second);
+  opt.add_point(p.first, p.second.y_low_, p.second.y_high_, p.second.y_);
 
   for (size_t i = 1; i < n; ++i) {
     auto next_p = in(i);
     if (next_p.first == p.first) continue;
     p = next_p;
-    if (!opt.add_point(p.first, p.second.first, p.second.second)) {
+    if (!opt.add_point(p.first, p.second.y_low_, p.second.y_high_,
+                       p.second.y_)) {
       out(opt.get_segment());
-      opt.add_point(p.first, p.second.first, p.second.second);
+      opt.add_point(p.first, p.second.y_low_, p.second.y_high_, p.second.y_);
       ++c;
     }
   }
@@ -369,7 +379,7 @@ size_t make_segmentation_range(size_t n, size_t epsilon, Fin in, Fout out) {
 template <typename Fin, typename Fout>
 size_t make_segmentation_range_par(size_t n, size_t epsilon, Fin in, Fout out) {
   auto parallelism =
-      std::min(std::min(omp_get_num_procs(), omp_get_max_threads()), 256);
+      std::min(std::min(omp_get_num_procs(), omp_get_max_threads()), 128);
   auto chunk_size = n / parallelism;
   auto c = 0ull;
 
@@ -417,13 +427,15 @@ class OptimalPiecewiseLinearModel<X, Y>::CanonicalSegment {
 
   Point rectangle[4];
   X first;
+  size_t y_;
 
-  CanonicalSegment(const Point &p0, const Point &p1, X first)
-      : rectangle{p0, p1, p0, p1}, first(first){};
+  CanonicalSegment(const Point &p0, const Point &p1, X first, size_t first_y)
+      : rectangle{p0, p1, p0, p1}, first(first), y_(first_y){};
 
-  CanonicalSegment(const Point (&rectangle)[4], X first)
+  CanonicalSegment(const Point (&rectangle)[4], X first, size_t first_y)
       : rectangle{rectangle[0], rectangle[1], rectangle[2], rectangle[3]},
-        first(first){};
+        first(first),
+        y_(first_y){};
 
   bool one_point() const {
     return rectangle[0].x == rectangle[2].x &&
@@ -435,6 +447,7 @@ class OptimalPiecewiseLinearModel<X, Y>::CanonicalSegment {
   CanonicalSegment() = default;
 
   X get_first_x() const { return first; }
+  size_t get_first_y() const { return y_; }
 
   std::pair<long double, long double> get_intersection() const {
     auto &p0 = rectangle[0];

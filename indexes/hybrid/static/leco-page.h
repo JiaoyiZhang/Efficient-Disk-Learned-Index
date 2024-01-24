@@ -26,7 +26,9 @@ class StaticLecoPage : public StaticIndex<K, V> {
         record_per_page_(p.record_per_page_),
         fixed_pages_(p.fix_page_),
         slide_pages_(p.slide_page_),
-        block_num_(p.block_num_) {}
+        block_num_(p.block_num_),
+        memory_size_(0),
+        disk_size_(0) {}
 
   size_t GetStaticInitSize(typename StaticIndex<K, V>::DataVec_& data) const {
     Leco_int<K> codec;
@@ -87,13 +89,26 @@ class StaticLecoPage : public StaticIndex<K, V> {
 
   void Build(typename StaticIndex<K, V>::DataVec_& data) {
     // merge data
+
+#ifdef BREAKDOWN
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     typename StaticIndex<K, V>::DataVec_ train_data;
     StaticIndex<K, V>::MergeData(data, train_data);
+#ifdef BREAKDOWN
+    auto end = std::chrono::high_resolution_clock::now();
+    if (merge_cnt >= 0) {
+      merge_lat +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+    }
+    start = std::chrono::high_resolution_clock::now();
+#endif
 
     // rebuild the static index
     codec_ = Leco_int<K>();
     block_start_vec_ = std::vector<uint8_t*>();
-    max_y_ = train_data.back().second;
+    max_y_ = train_data.size() - 1;
     std::vector<K> upper_bounds, lower_bounds, training;
     int group_width = record_per_page_ * (fixed_pages_ + slide_pages_);
     int slide_width = record_per_page_ * slide_pages_;
@@ -155,6 +170,16 @@ class StaticLecoPage : public StaticIndex<K, V> {
       block_start_vec_.push_back(descriptor);
       memory_size_ += segment_size;
     }
+    disk_size_ = sizeof(typename StaticIndex<K, V>::Record_) * size();
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    if (merge_cnt >= 0) {
+      train_lat +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+    }
+    merge_cnt++;
+#endif
 
 #ifdef PRINT_PROCESSING_INFO
     std::cout << "\nLeco-page use " << block_num_ << " models for "
@@ -202,19 +227,28 @@ class StaticLecoPage : public StaticIndex<K, V> {
         key, length);
   }
 
-  size_t size() const { return StaticIndex<K, V>::size(); }
+  inline size_t size() const { return StaticIndex<K, V>::size(); }
 
-  size_t GetNodeSize() const { return memory_size_; }
+  inline size_t GetNodeSize() const { return memory_size_; }
 
-  size_t GetTotalSize() const {
-    return GetNodeSize() + sizeof(typename StaticIndex<K, V>::Record_) * size();
-  }
+  inline size_t GetTotalSize() const { return memory_size_ + disk_size_; }
 
   void PrintEachPartSize() {
     std::cout << "\t\tleco-page:" << PRINT_MIB(GetNodeSize())
               << ",\ton-disk data num:" << size() << ",\ton-disk MiB:"
               << PRINT_MIB(sizeof(typename StaticIndex<K, V>::Record_) * size())
               << ",\ttotal MiB:" << PRINT_MIB(GetTotalSize()) << std::endl;
+#ifdef BREAKDOWN
+    if (merge_cnt > 0) {
+      std::cout << "merge cnt:" << merge_cnt << std::endl;
+      std::cout << " merge avg latency:" << merge_lat / merge_cnt / 1e6 << " ms"
+                << std::endl;
+      std::cout << " train avg latency:" << train_lat / merge_cnt / 1e6 << " ms"
+                << std::endl;
+      std::cout << "-------------print over---------------" << std::endl;
+    }
+    StaticIndex<K, V>::Breakdown();
+#endif
   }
 
   param_t GetIndexParams() const {
@@ -249,12 +283,19 @@ class StaticLecoPage : public StaticIndex<K, V> {
   size_t point_num_;
   V max_y_;
 
+#ifdef BREAKDOWN
+  double merge_lat = 0.0;
+  double train_lat = 0.0;
+  int merge_cnt = -1;
+#endif
+
   size_t record_per_page_;
   size_t fixed_pages_;
   size_t slide_pages_;
 
   size_t block_num_;
   size_t memory_size_ = 0;
+  size_t disk_size_ = 0;
 };
 
 #endif

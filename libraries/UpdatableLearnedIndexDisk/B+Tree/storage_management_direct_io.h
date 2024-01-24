@@ -1,13 +1,3 @@
-/**
- * @file storage_management.h
- * @author jiaoyi
- * @brief
- * @version 0.1
- * @date 2022-02-12
- *
- * @copyright Copyright (c) 2022
- *
- */
 #pragma once
 
 #include <fcntl.h>
@@ -90,7 +80,7 @@ class StorageManager {
     mn.block_count = 2;
     mn.root_block_id = 1;
     mn.level = 1;
-    // modified by jiaoyi
+    // Making In-Memory Learned Indexes Efficient on Disk
     mn.last_block = 0;
     memcpy(buf, &mn, MetaNodeSize);
     _write_block(buf, 0);

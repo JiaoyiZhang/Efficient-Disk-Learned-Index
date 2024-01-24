@@ -2,7 +2,6 @@
 #define INDEXES_BASELINE_PGM_DISK_H_
 
 #include "../../libraries/UpdatableLearnedIndexDisk/PGM/pgm/pgm_index_dynamic.hpp"
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 template <typename K, typename V>
@@ -96,7 +95,7 @@ class BaselinePGMDisk : public BaseIndex<K, V> {
   param_t GetIndexParams() const { return param_t(0); }
 
  private:
-  std::string name_ = "BASELINE_PGM_DISK";
+  std::string name_ = "BASELINE_OPTIMIZED_PGM";
   std::string index_file_;
   size_t memory_budget_;
   PGM_DISK pgm_;

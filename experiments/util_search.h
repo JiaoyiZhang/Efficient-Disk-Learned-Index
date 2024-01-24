@@ -1,14 +1,3 @@
-/**
- * @file util_search.h
- * @author Jiaoyi
- * @brief Functions for last-mile search.
- * @version 1
- * @date 2022-11-01
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #ifndef EXPERIMENTS_UTIL_SEARCH_H_
 #define EXPERIMENTS_UTIL_SEARCH_H_
 

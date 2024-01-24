@@ -10,7 +10,7 @@
 namespace compressed_disk_index {
 
 /**
- * PGM + zero-range calculation + compression (without keys)
+ * PGM + error bound alignment + compression (without keys)
  */
 template <typename K, typename V>
 class DiskOrientedIndexV3 {

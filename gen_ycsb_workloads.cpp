@@ -4,7 +4,7 @@
 #include <sstream>
 
 #include "key_type.h"
-#include "utils/util_lid.h"
+#include "ycsb_utils/util_lid.h"
 
 int main(int argc, char* argv[]) {
   char* endptr;

@@ -1,14 +1,3 @@
-/**
- * @file run_experiments.cpp
- * @author Jiaoyi
- * @brief
- * @version 0.1
- * @date 2023-03-14
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -16,8 +5,9 @@
 #include <vector>
 
 #include "./key_type.h"
-#include "./utils/benchmark.h"
-#include "indexes/baseline/btree-hai.h"
+#include "./ycsb_utils/benchmark.h"
+#include "indexes/baseline/btree-disk.h"
+#include "indexes/baseline/film.h"
 #include "indexes/baseline/pgm-disk-origin.h"
 #include "indexes/hybrid/dynamic/alex.h"
 #include "indexes/hybrid/dynamic/btree.h"
@@ -87,7 +77,8 @@ int main(int argc, char* argv[]) {
     PGM_ORIGIN,
     ALEX,
     FITING_TREE,
-    BTREE
+    BTREE,
+    FILM
   };
 
   std::map<std::string, int> index_name = {
@@ -105,6 +96,7 @@ int main(int argc, char* argv[]) {
       {"HYBRID_PGM_LECO", HYBRID_PGM_LECO},
       {"ALEX", ALEX},
       {"BTREE", BTREE},
+      {"FILM", FILM},
       {"FITING_TREE", FITING_TREE},
       {"PGM_ORIGIN", PGM_ORIGIN},
       {"PGM", PGM}};
@@ -148,7 +140,7 @@ int main(int argc, char* argv[]) {
 
   switch (index_name[kIndexName]) {
     case HYBRID_ALEX_RS: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_RS>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_RS>>(
           init_data, ops, ops_key, len,
           {{},
            {12, static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -156,7 +148,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_BTREE_RS: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_RS>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_RS>>(
           init_data, ops, ops_key, len,
           {{},
            {12, static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -164,7 +156,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_PGM_RS: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_RS>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_RS>>(
           init_data, ops, ops_key, len,
           {{},
            {12, static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -172,7 +164,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_ALEX_PGM: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_PGM>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_PGM>>(
           init_data, ops, ops_key, len,
           {{},
            {static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -180,7 +172,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_BTREE_PGM: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_PGM>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_PGM>>(
           init_data, ops, ops_key, len,
           {{},
            {static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -188,7 +180,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_PGM_PGM: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_PGM>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_PGM>>(
           init_data, ops, ops_key, len,
           {{},
            {static_cast<uint64_t>(kIndexParams2), {kFilepath, kPageBytes}},
@@ -196,7 +188,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_ALEX_DI: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_DI>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_DI>>(
           init_data, ops, ops_key, len,
           {{},
            {kIndexParams2,
@@ -206,7 +198,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_BTREE_DI: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_DI>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_DI>>(
           init_data, ops, ops_key, len,
           {{},
            {kIndexParams2,
@@ -216,7 +208,7 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_PGM_DI: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_DI>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_DI>>(
           init_data, ops, ops_key, len,
           {{},
            {kIndexParams2,
@@ -226,28 +218,35 @@ int main(int argc, char* argv[]) {
       break;
     }
     case HYBRID_ALEX_LECO: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_Leco>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_ALEX, Sta_Leco>>(
           init_data, ops, ops_key, len, {{}, leco_para, memory_budget});
       break;
     }
     case HYBRID_BTREE_LECO: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_Leco>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_BTree, Sta_Leco>>(
           init_data, ops, ops_key, len, {{}, leco_para, memory_budget});
       break;
     }
     case HYBRID_PGM_LECO: {
-      RunMicroBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_Leco>>(
+      RunYCSBBenchmark<HybridIndex<Key, Value, Dy_PGM, Sta_Leco>>(
           init_data, ops, ops_key, len, {{}, leco_para, memory_budget});
       break;
     }
     case BTREE: {
-      RunMicroBenchmark<BaselineBTreeHai<Key, Value>>(
+      RunYCSBBenchmark<BaselineBTreeDisk<Key, Value>>(
           init_data, ops, ops_key, len,
           {static_cast<size_t>(kIndexParams1), kFilepath});
       break;
     }
+    case FILM: {
+      RunYCSBBenchmark<BaselineFILM<Key, Value>>(
+          init_data, ops, ops_key, len,
+          {128, init_data.size(), kPageBytes, static_cast<size_t>(kIndexParams1),
+           kIndexParams2, kFilepath});
+      break;
+    }
     case PGM_ORIGIN: {
-      RunMicroBenchmark<BaselinePGMDiskOrigin<Key, Value>>(
+      RunYCSBBenchmark<BaselinePGMDiskOrigin<Key, Value>>(
           init_data, ops, ops_key, len,
           {static_cast<size_t>(kIndexParams1), kFilepath});
       break;

@@ -2,7 +2,6 @@
 #define INDEXES_BASELINE_PGM_DISK_ORIGIN_H_
 
 #include "../../libraries/UpdatableLearnedIndexDisk/PGM/pgm/pgm_index_dynamic_origin.hpp"
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 template <typename K, typename V>

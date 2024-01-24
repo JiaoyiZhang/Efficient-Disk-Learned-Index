@@ -2,7 +2,6 @@
 #define INDEXES_ALEX_DISK_H_
 
 #include "../../libraries/UpdatableLearnedIndexDisk/ALEX/alex.h"
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 template <typename K, typename V>
@@ -66,7 +65,7 @@ class BaselineAlexDisk : public BaseIndex<K, V> {
     smo_count += smo;
     return true;
   }
-  // TODO(jy): update
+  // TODO: update
   bool Update(const K key, const V value) { return Insert(key, value); }
   bool Delete(const K key) {
     alex_.erase(key);

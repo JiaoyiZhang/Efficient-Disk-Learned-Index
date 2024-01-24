@@ -1,13 +1,3 @@
-/**
- * @file util.h
- * @author Jiaoyi
- * @brief Utilities for our microbenchmark
- * @version 0.1
- * @date 2022-09-13
- *
- * @copyright Copyright (c) 2022
- *
- */
 #ifndef EXPERIMENTS_UTIL_H_
 #define EXPERIMENTS_UTIL_H_
 

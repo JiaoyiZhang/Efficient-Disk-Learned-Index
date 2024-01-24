@@ -1,14 +1,3 @@
-/**
- * @file pgm-index-disk-pg.h
- * @author Jiaoyi
- * @brief The Piecewise Geometric Model index
- * @version 0.1
- * @date 2023-03-01
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #ifndef INDEXES_PGM_INDEX_DISK_PG_H_
 #define INDEXES_PGM_INDEX_DISK_PG_H_
 

@@ -4,8 +4,8 @@
 #include <iostream>
 #include <vector>
 
-#include "../../../utils/structures.h"
-#include "../../../utils/util_search.h"
+#include "../../../ycsb_utils/structures.h"
+#include "../../../ycsb_utils/util_search.h"
 
 template <typename K, typename V>
 class StaticIndex {
@@ -53,7 +53,7 @@ class StaticIndex {
     }
 #endif
     int last_id = record_per_page_;
-    if (range.stop / record_per_page_ == page_number_ - 1) {
+    if ((range.stop - 1) / record_per_page_ == page_number_ - 1) {
       last_id = last_page_id_;
     }
     return NormalCoreLookup<K_, V_>(fd, range, key, kWorstCase,
@@ -62,61 +62,75 @@ class StaticIndex {
   }
 
   inline void MergeData(DataVec_& dy_data, DataVec_& merged_data) {
+#ifdef BREAKDOWN
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     merged_data = DataVec_(dy_data.size() + size());
-    DataVec_ stored_data = DataVec_(dy_data.size() + size());
-    DataVec_ static_data;
+#ifdef BREAKDOWN
+    auto end = std::chrono::high_resolution_clock::now();
+    if (merge_cnt >= 0) {
+      init_lat +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+    }
+#endif
     if (size() > 0) {
-      GetDataVector(static_data);
+#ifdef BREAKDOWN
+      start = std::chrono::high_resolution_clock::now();
+#endif
+      GetDataVector(merged_data);
+#ifdef BREAKDOWN
+      end = std::chrono::high_resolution_clock::now();
+      if (merge_cnt >= 0) {
+        get_static_data_lat +=
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+                .count();
+      }
+#endif
     }
-    uint64_t cnt = 0, i = 0, j = 0;
-    for (; i < dy_data.size() && j < static_data.size();) {
-      if (dy_data[i].first < static_data[j].first) {
-        if (cnt > 0 && dy_data[i].first == merged_data[cnt - 1].first) {
-          cnt--;
-        }
-        stored_data[cnt] = dy_data[i];
-        merged_data[cnt] = {dy_data[i].first, cnt};
-        i++;
-      } else if (dy_data[i].first > static_data[j].first) {
-        if (cnt > 0 && static_data[j].first == merged_data[cnt - 1].first) {
-          cnt--;
-        }
-        stored_data[cnt] = static_data[j];
-        merged_data[cnt] = {static_data[j].first, cnt};
-        j++;
+
+#ifdef BREAKDOWN
+    start = std::chrono::high_resolution_clock::now();
+#endif
+    int cnt = merged_data.size() - 1, i = dy_data.size() - 1, j = size() - 1;
+    while (i >= 0 && j >= 0) {
+      if (dy_data[i].first < merged_data[j].first) {
+        merged_data[cnt--] = merged_data[j--];
       } else {
-        // ensure unique keys
-        stored_data[cnt] = dy_data[i];
-        merged_data[cnt] = {dy_data[i].first, cnt};
-        i++;
-        j++;
-      }
-      cnt++;
-    }
-
-    if (i < dy_data.size()) {
-      for (; i < dy_data.size(); i++) {
-        stored_data[cnt] = dy_data[i];
-        merged_data[cnt] = {dy_data[i].first, cnt};
-        cnt++;
-      }
-    }
-    if (j < static_data.size()) {
-      for (; j < static_data.size(); j++) {
-        stored_data[cnt] = static_data[j];
-        merged_data[cnt] = {static_data[j].first, cnt};
-        cnt++;
+        merged_data[cnt--] = dy_data[i--];
       }
     }
 
-    merged_data.resize(cnt);
-    stored_data.resize(cnt);
+    while (i >= 0) {
+      merged_data[cnt--] = dy_data[i--];
+    }
+
     data_number_ = merged_data.size();
     page_number_ = std::ceil(data_number_ * 1.0 / record_per_page_);
     last_page_id_ =
         record_per_page_ - (page_number_ * record_per_page_ - data_number_);
-    DirectIOWrite(fd, stored_data, record_per_page_ * sizeof(Record_),
+
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    if (merge_cnt >= 0) {
+      split_data_lat +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+    }
+    start = std::chrono::high_resolution_clock::now();
+#endif
+    DirectIOWrite(fd, merged_data, record_per_page_ * sizeof(Record_),
                   page_number_, read_buf_);
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    if (merge_cnt >= 0) {
+      store_disk_lat +=
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+              .count();
+    }
+    merge_cnt++;
+#endif
+
 #ifdef CHECK_CORRECTION
     DataVec_ stored;
     GetDataVector(stored);
@@ -151,6 +165,21 @@ class StaticIndex {
     return res.val;
   }
 
+#ifdef BREAKDOWN
+  inline void Breakdown() {
+    if (merge_cnt > 0) {
+      std::cout << "init_lat:" << init_lat / merge_cnt / 1e6 << " ms"
+                << std::endl;
+      std::cout << "get_static_data_lat:"
+                << get_static_data_lat / merge_cnt / 1e6 << " ms" << std::endl;
+      std::cout << "split_data_lat:" << split_data_lat / merge_cnt / 1e6
+                << " ms" << std::endl;
+      std::cout << "store_disk_lat:" << store_disk_lat / merge_cnt / 1e6
+                << " ms" << std::endl;
+    }
+  }
+#endif
+
   inline size_t size() const { return data_number_; }
 
   virtual size_t GetStaticInitSize(DataVec_& data) const = 0;
@@ -163,8 +192,8 @@ class StaticIndex {
  private:
   inline void GetDataVector(DataVec_& data) const {
     if (size() > 0) {
-      data = GetAllData<K, V>(fd, page_number_, record_per_page_, data_number_,
-                              read_buf_);
+      GetAllData<K, V>(fd, 0, page_number_, record_per_page_, data_number_,
+                       read_buf_, data);
     } else {
       std::cout << "GetDataVector: no data" << std::endl;
     }
@@ -180,6 +209,14 @@ class StaticIndex {
   std::string data_file_;
   int fd;
   uint64_t record_per_page_;
+
+#ifdef BREAKDOWN
+  double init_lat = 0.0;
+  double get_static_data_lat = 0.0;
+  double split_data_lat = 0.0;
+  double store_disk_lat = 0.0;
+  int merge_cnt = -1;
+#endif
 
   uint64_t data_number_;
   int page_number_;

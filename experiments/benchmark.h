@@ -1,14 +1,3 @@
-/**
- * @file benchmark.h
- * @author Jiaoyi
- * @brief Microbenchmark to evaluate on-disk indexes
- * @version 0.1
- * @date 2022-09-13
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #include <string>
 #include <utility>
 

@@ -21,9 +21,11 @@ struct SearchBound {
   size_t end;  // Exclusive.
 };
 
-#define PARALLELISM 256
+#define PARALLELISM 64
 #define LINEAR_BOUND 5
 #define DI_MiB(bytes) ((bytes) / 1024.0 / 1024.0)
+// typedef uint32_t INTERCEPT_TYPE;
+typedef int64_t INTERCEPT_TYPE;
 
 template <typename K>
 class Segments {
@@ -56,15 +58,20 @@ class CompressedIntercepts {
 
   template <typename IterI>
   void Compress(IterI first_intercept, IterI last_intercept) {
-    if (*(last_intercept - 1) > UINT32_MAX)
+    if (sizeof(INTERCEPT_TYPE) == sizeof(uint32_t) &&
+        *(last_intercept - 1) > UINT32_MAX) {
+      std::cout << "UINT32_MAX:" << UINT32_MAX
+                << ",\t*(last_intercept - 1):" << *(last_intercept - 1)
+                << std::endl;
       throw std::overflow_error(
-          "Change the type of CompressedIntercepts::intercept to uint64");
+          "Change the type of CompressedIntercepts::intercept to int64_t");
+    }
 
     intercept_offset_ = *first_intercept;
     // make intercepts increasing
-    std::vector<uint32_t> increasing_intercepts(first_intercept,
-                                                last_intercept);
-    uint32_t offset = 0, idx = 1;
+    std::vector<INTERCEPT_TYPE> increasing_intercepts(first_intercept,
+                                                      last_intercept);
+    INTERCEPT_TYPE offset = 0, idx = 1;
     for (auto it = first_intercept + 1; it != last_intercept; it++, idx++) {
       if (*it <= *(it - 1)) {
         intercepts_map_.insert({it - first_intercept - 1, offset});
@@ -95,24 +102,25 @@ class CompressedIntercepts {
     sdsl::util::init_support(sel1_, &compressed_intercepts_);
   }
 
-  inline uint32_t get_intercept(size_t i) const {
+  inline INTERCEPT_TYPE get_intercept(size_t i) const {
     auto it = intercepts_map_.lower_bound(i);
-    return intercept_offset_ + uint32_t(sel1_(i + 1)) - it->second;
+    return intercept_offset_ + INTERCEPT_TYPE(sel1_(i + 1)) - it->second;
   }
 
   inline size_t size() const {
-    return sizeof(uint32_t) + sdsl::size_in_bytes(compressed_intercepts_) +
-           intercepts_map_.size() * (sizeof(size_t) + sizeof(uint32_t));
+    return sizeof(INTERCEPT_TYPE) +
+           sdsl::size_in_bytes(compressed_intercepts_) +
+           intercepts_map_.size() * (sizeof(size_t) + sizeof(INTERCEPT_TYPE));
   }
 
  private:
-  uint32_t intercept_offset_;  ///< An offset to make the intercepts start from
-                               ///< 0 in the bitvector.
+  INTERCEPT_TYPE intercept_offset_;  ///< An offset to make the intercepts start
+                                     ///< from 0 in the bitvector.
   sdsl::sd_vector<> compressed_intercepts_;  ///< The compressed bitvector
                                              ///< storing the intercepts.
   sdsl::sd_vector<>::select_1_type
       sel1_;  ///< The select1 succinct data structure on compressed_intercepts.
-  std::map<uint32_t, uint32_t> intercepts_map_;
+  std::map<size_t, INTERCEPT_TYPE> intercepts_map_;
 };
 
 template <typename K>
@@ -128,11 +136,12 @@ class CompressedSlopes {
     return idx;
   }
 
-  inline std::vector<size_t> MergeCompress(
+  inline std::vector<int64_t> MergeCompress(
       const std::vector<Segments<K>>& segments) {
-    std::vector<size_t> intercepts;
     size_t n = segments.size();
+    std::vector<int64_t> intercepts;
     intercepts.reserve(n);
+    slopes_table_ = std::vector<float>();
     slopes_table_.reserve(n);
 
     auto cmp = [&](auto i1, auto i2) {
@@ -141,7 +150,7 @@ class CompressedSlopes {
     auto sorted_indexes = sort_indexes(segments, cmp);
     auto [current_min, current_max] = segments[sorted_indexes[0]].slope_range_;
 
-    std::vector<uint32_t> mapping(n);
+    std::vector<size_t> mapping(n);
     mapping[sorted_indexes[0]] = 0;
 
     for (size_t i = 1; i < sorted_indexes.size(); ++i) {
@@ -155,7 +164,7 @@ class CompressedSlopes {
         if (min > current_min) current_min = min;
         if (max < current_max) current_max = max;
       }
-      mapping[sorted_indexes[i]] = uint32_t(slopes_table_.size());
+      mapping[sorted_indexes[i]] = slopes_table_.size();
     }
 
     slopes_table_.push_back(0.5 * (current_min + current_max));
@@ -169,7 +178,7 @@ class CompressedSlopes {
       auto [i_x, i_y] = segments[i].intersection_;
       auto slope = slopes_table_[mapping[i]];
       auto intercept =
-          (int64_t)std::round(i_y - (i_x - segments[i].key_) * slope);
+          (INTERCEPT_TYPE)std::round(i_y - (i_x - segments[i].key_) * slope);
       intercepts.push_back(intercept);
     }
 
@@ -251,7 +260,10 @@ class LecoCompression {
 
   inline void Compress(const std::vector<K>& keys, int init_block_num) {
     point_num_ = keys.size();
-    assert(point_num_ > 10);
+    if (point_num_ <= 100) {
+      points_ = keys;
+      return;
+    }
     memory_size_ = 0;
 
     if (point_num_ >= 10 * init_block_num) {
@@ -285,11 +297,18 @@ class LecoCompression {
   }
 
   inline K decompress(size_t i) {
+    if (point_num_ <= 100) {
+      return points_[i];
+    }
     return codec_.randomdecodeArray8(block_start_vec_[i / block_width_],
                                      i % block_width_, NULL, point_num_);
   }
 
   inline std::pair<size_t, K> LecoUpperBound(K key) {
+    if (point_num_ <= 100) {
+      auto it = std::upper_bound(points_.begin(), points_.end(), key);
+      return {it - points_.begin(), *(--it)};
+    }
     uint64_t s = 0, e = point_num_;
     K data_mid = 0, last_data = 0;
     while (s < e) {

@@ -1,14 +1,3 @@
-/**
- * @file util_lid.h
- * @author Jiaoyi
- * @brief Functions for preprocessing or benchmarking
- * @version 1
- * @date 2022-10-31
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #ifndef EXPERIMENTS_UTIL_LID_H_
 #define EXPERIMENTS_UTIL_LID_H_
 

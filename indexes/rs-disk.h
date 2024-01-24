@@ -1,13 +1,3 @@
-/**
- * @file rs-disk.h
- * @author Jiaoyi
- * @brief RadixSpline
- * @version 0.1
- * @date 2023-02-26
- *
- * @copyright Copyright (c) 2022
- *
- */
 #ifndef INDEXES_RS_DISK_H_
 #define INDEXES_RS_DISK_H_
 

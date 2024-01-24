@@ -4,10 +4,11 @@
 #include "../indexes/hybrid/hybrid_index.h"
 
 template <typename IndexType>
-inline void RunMicroBenchmark(DataVec& init_data, std::vector<int>& ops,
-                              KeyVec& ops_key, std::vector<int>& len,
-                              typename IndexType::param_t index_params) {
-  std::cout << "\n\n--------------- TESTING ----------------" << std::endl;
+inline void RunYCSBBenchmark(DataVec& init_data, std::vector<int>& ops,
+                             KeyVec& ops_key, std::vector<int>& len,
+                             typename IndexType::param_t index_params) {
+  std::cout << "\n\n--------------- TESTING YCSB BENCHMARK ----------------"
+            << std::endl;
   IndexType index(index_params);
 
   const uint64_t build_time = GetNsTime([&] { index.Build(init_data); }) / 1e6;

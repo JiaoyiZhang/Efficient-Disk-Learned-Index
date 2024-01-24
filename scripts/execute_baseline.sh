@@ -1,4 +1,4 @@
-printf "Execute microbenchmark\n
+printf "Execute microbenchmark\n"
 
 # workload setup
 dataset=(fb_200M_uint64 books_200M_uint64 osm_cellids_200M_uint64)
@@ -15,6 +15,8 @@ budget=10265559 # 9.79 MiB
 bt_inner_disk=(2 1 0) # for BTREE
 pgm_params=(16 256 512 768 1024) # for PGM_ORIGIN
 useless=64
+mem_budget=5120 # MiB, for film
+fraction=0.5 # for filme
 
 index_path="$1/indexes/"
 for pattern in ${patterns[*]}
@@ -43,6 +45,12 @@ do
             workload_dir="$1$pattern/$data/$wl"
 
             resfile="$2/results$pattern/${date}_${data}_${wl}_baseline.csv"
+
+            index="FILM"
+            indexfile="${index_path}${index}_${data}_${wl}_$bt.idx"
+            echo "     index: $index, resfile: $resfile"
+            ./build/HYBRID-LID $workload_dir $range $index $mem_budget $fraction $indexfile $page_bytes $budget >> $resfile
+
             for bt in ${bt_inner_disk[*]}
             do
                 index="BTREE"

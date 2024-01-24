@@ -16,7 +16,6 @@ or run `git submodule init && git submodule update` in the local repo.
 - Zone Map
 - LeCo-Zonemap
 - LeCo-Zonemap-Disk
-- TBC
 
 ### YCSB Benchmark
 - Disk-based PGM
@@ -42,7 +41,7 @@ key2
 ```
 
 ### Run Microbenchmark
-Please make sure that the datasets in the corresponding scripts are already stored in "./datasets/".
+Please make sure that the datasets in the corresponding scripts are already stored in `./datasets/`. The parameters in each experiment are included in each sub-script.
 ```bash
 bash RunOnSingleDisk.sh
 ```
@@ -83,7 +82,13 @@ bash RunOnSingleDisk.sh
 bash scripts/build_benchmark.sh
 bash PrepareYCSB.sh
 ```
-4. Run YCSB Benchmark
+4. [optional] Modify the index parameters in `scripts/params_cc` (for write-only workload), `scripts/params_c` (for read-only workload), `scripts/params_aa` (for balanced workload)
+5. Run Single-Threaded YCSB Benchmark
 ```bash
 bash RunYCSBOnSingleDisk.sh
+```
+6. Run Multi-Threaded YCSB Benchmark
+The number of threads is included in `RunMultiThreadedYCSB.sh`
+```bash
+bash RunMultiThreadedYCSB.sh
 ```

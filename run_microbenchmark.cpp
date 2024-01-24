@@ -1,14 +1,3 @@
-/**
- * @file run_experiments.cpp
- * @author Jiaoyi
- * @brief
- * @version 0.1
- * @date 2022-09-13
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -347,4 +336,3 @@ int main(int argc, char* argv[]) {
   }
   free(params.read_buf_);
 }
-

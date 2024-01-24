@@ -422,7 +422,7 @@ class BTree {
     return bs.added_block;
   }
 
-  // jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   BuildStatus insert_key_partial(int current_block_id, LeafNodeIterm lni_item,
                                  bool modify_inner_btree, bool special_case) {
 #if Profiling
@@ -612,7 +612,7 @@ class BTree {
     return bs.added_block;
   }
 
-  // jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   int insert_key_entry(KeyType key, ValueType value) {
     LeafNodeIterm lni;
     lni.key = key;
@@ -778,7 +778,7 @@ class BTree {
     return ii;
   }
 
-  // jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   IndexIterator get_index_iterator_partial_disk(Condition cond, int *c) {
     // search in the inner part
     stx_btree::iterator it = inner_btree.find_for_disk(cond.min);
@@ -847,7 +847,7 @@ class BTree {
     return found;
   }
 
-  // jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   bool lookup_leaf_disk(Condition cond, int *c, KeyType *val) {
     IndexIterator ii = get_index_iterator_partial_disk(cond, c);
     // scan forward
@@ -870,7 +870,7 @@ class BTree {
       return bookup_leaf_disk(cond, c);
   }
 
-  // jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   bool lookup(KeyType key, int *c, ValueType *val) {
     Condition cond;
     cond.include_max = cond.include_min = true;
@@ -954,7 +954,7 @@ class BTree {
       pos++;
       found = true;
     }
-    // jiaoyi
+    // Making In-Memory Learned Indexes Efficient on Disk
     while (pos < len) {
       results[pos] = 0;
     }
@@ -972,7 +972,7 @@ class BTree {
       return scan_leaf_disk(results, cond, len, c);
   }
 
-  // modidied by jiaoyi
+  // Making In-Memory Learned Indexes Efficient on Disk
   void bulk_load(LeafNodeIterm *data, long item_count, double per = 0.8,
                  int inner_disk_level = 0) {
     inner_disk_level_num = inner_disk_level;

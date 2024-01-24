@@ -1,14 +1,3 @@
-/**
- * @file util_same_block_size.h
- * @author Jiaoyi
- * @brief Functions for normal mode (the size of each page/block is the same)
- * @version 1
- * @date 2022-10-31
- *
- * @copyright Copyright (c) 2022
- *
- */
-
 #ifndef EXPERIMENTS_UTIL_SAME_BLOCK_SIZE_H_
 #define EXPERIMENTS_UTIL_SAME_BLOCK_SIZE_H_
 

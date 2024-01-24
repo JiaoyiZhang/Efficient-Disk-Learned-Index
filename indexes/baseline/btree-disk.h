@@ -1,19 +1,18 @@
-#ifndef INDEXES_BTREE_HAI_H_
-#define INDEXES_BTREE_HAI_H_
+#ifndef INDEXES_BTREE_DISK_H_
+#define INDEXES_BTREE_DISK_H_
 
 #include "../../libraries/UpdatableLearnedIndexDisk/B+Tree/b_tree.h"
-#include "../../utils/util_lid.h"
 #include "../base_index.h"
 
 template <typename K, typename V>
-class BaselineBTreeHai : public BaseIndex<K, V> {
+class BaselineBTreeDisk : public BaseIndex<K, V> {
  public:
   struct param_t {
     size_t inner_on_disk_num;
     std::string main_file;
   };
 
-  BaselineBTreeHai(param_t params = param_t(0, ""))
+  BaselineBTreeDisk(param_t params = param_t(0, ""))
       : index_file_(params.main_file),
         btree_(HYBRID_MODE, true, const_cast<char*>(index_file_.c_str()), true),
         // btree_(HYBRID_MODE, true, const_cast<char*>(index_file_.c_str()),
@@ -101,7 +100,7 @@ class BaselineBTreeHai : public BaseIndex<K, V> {
   param_t GetIndexParams() const { return param_t(0); }
 
  private:
-  std::string name_ = "BASELINE_BTree_Hai";
+  std::string name_ = "BASELINE_BTree_Disk";
   std::string index_file_;
   BTree btree_;
   int inner_on_disk_num_;
@@ -109,4 +108,4 @@ class BaselineBTreeHai : public BaseIndex<K, V> {
   int cnt_;
 };
 
-#endif  // !INDEXES_BTREE_HAI_H_
+#endif  // !INDEXES_BTREE_DISK_H_

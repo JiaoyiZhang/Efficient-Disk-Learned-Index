@@ -12,7 +12,7 @@
 namespace compressed_disk_index {
 
 /**
- * PGM + zero-range calculation + compression
+ * PGM + error bound alignment + compression
  */
 template <typename K, typename V>
 class DiskOrientedIndexV4 {
@@ -45,13 +45,32 @@ class DiskOrientedIndexV4 {
     std::cout << "pgm_epsilon:" << pgm_epsilon << std::endl;
 #endif
     error_ = pgm_epsilon + 1;
+#ifdef BREAKDOWN
+    init_data_size = data.size();
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     std::vector<std::pair<float, float>> origin_slope_ranges;
     std::vector<std::pair<long double, long double>> origin_intersections;
     std::vector<typename pgm_page::PGMIndexPage<K>::CompressSegment>
         pgm_segments;
+#ifdef BREAKDOWN
+    auto end = std::chrono::high_resolution_clock::now();
+    init_vector_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    start = std::chrono::high_resolution_clock::now();
+#endif
 
     GetDiskOrientedPGM(data, pgm_epsilon, record_per_page_, max_y_,
                        pgm_segments, origin_slope_ranges, origin_intersections);
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    get_pgm_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    seg_size = pgm_segments.size();
+    start = std::chrono::high_resolution_clock::now();
+#endif
 
     // store segments for the compression phase
     std::vector<Segments<K>> segments(pgm_segments.size() - 1);
@@ -65,8 +84,22 @@ class DiskOrientedIndexV4 {
     model_keys[pgm_segments.size() - 1] = pgm_segments.back().key;
     const size_t seg_num = segments.size();
 
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    store_seg_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    start = std::chrono::high_resolution_clock::now();
+#endif
     // compress slopes
     auto intercepts = compressed_slopes.MergeCompress(segments);
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    cpr_slope_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    start = std::chrono::high_resolution_clock::now();
+#endif
 #ifndef HYBRID_BENCHMARK
     std::cout << "the slope-compression phase has been completed!" << std::endl;
     float reduced = 0, original = DI_MiB(seg_num * sizeof(K));
@@ -85,6 +118,13 @@ class DiskOrientedIndexV4 {
 #endif
 
     pgm_intercepts_.Compress(intercepts.begin(), intercepts.end());
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    cpr_intercept_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+    start = std::chrono::high_resolution_clock::now();
+#endif
 #ifndef HYBRID_BENCHMARK
     std::cout << ",\tafter compressing the intercepts (PGM):" << std::endl;
     PrintReducedMemory(sizeof(uint64_t) * seg_num, pgm_intercepts_.size());
@@ -104,6 +144,12 @@ class DiskOrientedIndexV4 {
 #endif
     // compress keys
     compressed_keys.Compress(model_keys, 1000);
+#ifdef BREAKDOWN
+    end = std::chrono::high_resolution_clock::now();
+    cpr_key_lat +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+#endif
 #ifndef HYBRID_BENCHMARK
     std::cout << ",\tafter compressing the model keys:" << std::endl;
     reduced += PrintReducedMemory(sizeof(K) * seg_num, compressed_keys.size());
@@ -138,6 +184,15 @@ class DiskOrientedIndexV4 {
            sizeof(uint16_t) + compressed_keys.size();
 #endif
   }
+#ifdef BREAKDOWN
+  void PrintBreakdown() {
+    std::cout << "di v4: ," << init_data_size << ",\t" << seg_size << ",\t"
+              << init_vector_lat / 1e6 << ",\t" << get_pgm_lat / 1e6 << ",\t"
+              << store_seg_lat / 1e6 << ",\t" << cpr_slope_lat / 1e6 << ",\t"
+              << cpr_intercept_lat / 1e6 << ",\t" << cpr_key_lat / 1e6
+              << std::endl;
+  }
+#endif
 
  private:
   inline std::pair<size_t, K> GetSegmentIndex(const K key) {
@@ -172,6 +227,16 @@ class DiskOrientedIndexV4 {
   CompressedIntercepts pgm_intercepts_;
 
   LecoCompression<K> compressed_keys;
+#ifdef BREAKDOWN
+  double init_vector_lat{0};
+  double get_pgm_lat{0};
+  double store_seg_lat{0};
+  double cpr_slope_lat{0};
+  double cpr_intercept_lat{0};
+  double cpr_key_lat{0};
+  size_t init_data_size = 0;
+  size_t seg_size = 0;
+#endif
 };
 
 }  // namespace compressed_disk_index

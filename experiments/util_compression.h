@@ -1,6 +1,6 @@
 /**
  * @file util_compression.h
- * @author Jiaoyi
+ * @author Making In-Memory Learned Indexes Efficient on Disk
  * @brief Functions for compression mode (the sizes of pages/blocks are
  * different)
  * @version 1
