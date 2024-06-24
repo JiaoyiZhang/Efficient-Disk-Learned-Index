@@ -1,5 +1,6 @@
 # Efficient Learned Indexes on Disk
-A microbenchmark and YCSB benchmark for evaluating learned indexes on disk.
+A microbenchmark and YCSB benchmark for evaluating learned indexes on disk.\
+More details can be found in our paper in SIGMOD 2024: [**Making In-Memory Learned Indexes Efficient on Disk**](https://dl.acm.org/doi/pdf/10.1145/3654954).
 
 ## Supported indexes
 The indexes are included as git submodules.
